@@ -152,6 +152,7 @@ SENHA_ADMIN      = "23032005"
 DIAS_LIXEIRA     = 7
 ICONE_PATH = resource_path("icone.ico")
 LIMITE_AUTO_SEG  = 0.30 # 150ms maximo pro laser bater (humano n chega perto)
+VERSAO_ATUAL     = "v1.0"
 
 
 ctk.set_appearance_mode("dark")
@@ -496,9 +497,11 @@ class TelaOT(ctk.CTk):
 
         ctk.CTkButton(self, text="Iniciar conferência", width=300, height=42, font=ctk.CTkFont(size=14, weight="bold"), command=self.iniciar).pack(pady=(10, 0))
 
-        self.label_creditos = ctk.CTkLabel(self, text="Desenvolvido por Lucas S. Domingues", font=ctk.CTkFont(size=11), text_color="gray")
+        texto_rodape = f"Desenvolvido por Lucas S. Domingues  |  {VERSAO_ATUAL}"
+        self.label_creditos = ctk.CTkLabel(self, text=texto_rodape, font=ctk.CTkFont(size=11), text_color="gray50")
         self.label_creditos.place(x=15, y=445)
 
+        # Botão admin no canto oposto
         self.btn_admin = ctk.CTkButton(self, text="⚙", width=30, fg_color="transparent", text_color="gray30", hover_color="gray25", command=self._acesso_admin)
         self.btn_admin.place(x=380, y=440)
 

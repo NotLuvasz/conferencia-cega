@@ -1,1 +1,1 @@
-pyinstaller --noconsole --onefile --add-data "icone.ico;." --icon=icone.ico --hidden-import="selenium.webdriver" --hidden-import="selenium.webdriver.chrome.webdriver" --hidden-import="selenium.webdriver.chrome.options" --add-data "atualizador.py;." ConferenciaCega.py
+pyinstaller --noconsole --onefile --add-data "icone.ico;." --add-data "atualizador.py;." --icon=icone.ico --hidden-import="selenium.webdriver" --hidden-import="selenium.webdriver.chrome.webdriver" --hidden-import="selenium.webdriver.chrome.options" ConferenciaCega.py
