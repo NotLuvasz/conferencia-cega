@@ -26,7 +26,11 @@ class MotorSAP:
         """Localiza a OT na lista e entra na tela de edição"""
         url_atual = self.driver.current_url
         
-        # O SEGREDO ESTÁ AQUI: Aumentamos a paciência do robô de 5 para 20 segundos.
+        for aba in self.driver.window_handles:
+            self.driver.switch_to.window(aba)
+            if "transferencia" in self.driver.current_url: # Palavra chave da URL do SAP
+                break
+
         # Ele vai ficar "vigiando" a tela até a tabela terminar de carregar.
         wait = WebDriverWait(self.driver, 20)
 
@@ -64,8 +68,8 @@ class MotorSAP:
                     if texto.isdigit() and len(texto) >= 7 and texto != numero_ot:
                         doc_num = texto
                         break
+                        
             except Exception:
-                # Mensagem de erro mais clara caso a net da loja esteja muito ruim
                 return False, f"A OT {numero_ot} não carregou na lista após 20 segundos.\nA página está logada corretamente?"
 
         # 4. Navega para a URL de edição final

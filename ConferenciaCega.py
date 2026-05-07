@@ -21,6 +21,7 @@ from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
 from atualizador import verificar_atualizacao_async, JanelaUpdate, VERSAO_ATUAL
+from atualizador import VERSAO_ATUAL
 
 
 def preparar_ambiente_chrome():
@@ -152,8 +153,6 @@ SENHA_ADMIN      = "23032005"
 DIAS_LIXEIRA     = 7
 ICONE_PATH = resource_path("icone.ico")
 LIMITE_AUTO_SEG  = 0.30 # 150ms maximo pro laser bater (humano n chega perto)
-VERSAO_ATUAL     = "v1.0"
-
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -497,7 +496,7 @@ class TelaOT(ctk.CTk):
 
         ctk.CTkButton(self, text="Iniciar conferência", width=300, height=42, font=ctk.CTkFont(size=14, weight="bold"), command=self.iniciar).pack(pady=(10, 0))
 
-        texto_rodape = f"Desenvolvido por Lucas S. Domingues  |  {VERSAO_ATUAL}"
+        texto_rodape = f"Desenvolvido por Lucas S. Domingues | {VERSAO_ATUAL}"
         self.label_creditos = ctk.CTkLabel(self, text=texto_rodape, font=ctk.CTkFont(size=11), text_color="gray50")
         self.label_creditos.place(x=15, y=445)
 

@@ -11,7 +11,7 @@ from tkinter import messagebox
 # ──────────────────────────────────────────────
 #  CONFIGURAÇÕES
 # ──────────────────────────────────────────────
-VERSAO_ATUAL   = "v1.0"
+VERSAO_ATUAL   = "v1.2"
 GITHUB_API_URL = "https://api.github.com/repos/NotLuvasz/conferencia-cega/releases/latest"
 TIMEOUT_REDE   = 4  
 
