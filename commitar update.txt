@@ -1,0 +1,5 @@
+git add . 
+git commit -m "o que mudou" 
+git push
+
+tudo isso na pasta do script

@@ -20,6 +20,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
+from atualizador import verificar_atualizacao_async, JanelaUpdate, VERSAO_ATUAL
 
 
 def preparar_ambiente_chrome():
@@ -469,6 +470,11 @@ class TelaOT(ctk.CTk):
         self.resizable(False, False)
         aplicar_icone(self)
 
+        # verifica update em background — não trava o boot
+        self.after(2000, self._checar_update)
+
+        
+
         ctk.CTkLabel(self, text="Conferência Cega", font=ctk.CTkFont(size=24, weight="bold")).pack(pady=(36, 4))
         ctk.CTkLabel(self, text="Prevenção de Perdas", font=ctk.CTkFont(size=13), text_color="gray").pack(pady=(0, 20))
 
@@ -497,6 +503,12 @@ class TelaOT(ctk.CTk):
         self.btn_admin.place(x=380, y=440)
 
         self.campo_nome.focus()
+
+    def _checar_update(self):
+            def _on_update(versao_nova, url_exe):
+                # volta pra thread principal antes de abrir janela
+                self.after(0, lambda: JanelaUpdate(self, versao_nova, url_exe))
+            verificar_atualizacao_async(_on_update)
 
     def _acesso_admin(self):
         janela_senha = ctk.CTkToplevel(self)
