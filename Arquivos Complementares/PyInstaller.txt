@@ -1,0 +1,1 @@
+pyinstaller --noconsole --onefile --icon=icone.ico --add-data "icone.ico;." ConferenciaCega.py
