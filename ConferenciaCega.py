@@ -29,55 +29,56 @@ def preparar_ambiente_chrome():
     Garante que existe um Chrome isolado com a porta 9224 ativa.
     Clona o perfil original para C:\DadosSele de forma plana para manter logins.
     """
-    # 1. Testa se a porta já está ativa
+    # 1. o chrome abre na porta, então isso verifica se a porta tá aberta, no caso de a loja já estar com chrome diferenciado aberto.
     try:
         urllib.request.urlopen("http://127.0.0.1:9224/json", timeout=2)
         return True 
     except Exception:
         pass
 
-    # 2. Mata processos antigos para evitar conflitos na porta
+    # 2. mata os chromes abertos, pra não dar b.o (conflito btw)
     os.system("taskkill /F /IM chrome.exe /T >nul 2>&1")
     os.system("taskkill /F /IM chromedriver.exe /T >nul 2>&1")
     time.sleep(2) 
 
-    # 3. Configuração de Caminhos
-    # Usamos C:\DadosSele como a 'raiz' do perfil
+    # 3. configurando os diretórios
+    # c:\DadosSele vira o caminho do perfil do chrome da loja
     pasta_raiz = r"C:\DadosSele"
     appdata_local = os.getenv('LOCALAPPDATA')
-    # Origem real dos dados do Chrome no Windows
+    # origem original dos dados do perfil, de onde vão ser importados
     origem_dados = os.path.join(appdata_local, 'Google', 'Chrome', 'User Data')
 
-    # 4. Clonagem do Perfil (Somente se a pasta não existir)
+    # 4. clonagem do perfil (se a pasta não existir)
     if not os.path.exists(pasta_raiz):
         messagebox.showinfo(
             "Configuração Inicial", 
             "Formatando perfil da loja para conferência\nIsso leva de 1 a 2 minutos."
         )
         try:
-            # dirs_exist_ok=True garante que ele copie os arquivos PARA DENTRO de C:\DadosSele
+            # se o diretório tiver sido criado corretamente, vai fazer copytree da pasta do perfil
             shutil.copytree(origem_dados, pasta_raiz, dirs_exist_ok=True)
         except Exception as e:
             messagebox.showerror("Erro", f"Falha ao clonar perfil: {e}")
             return False
 
-    # 5. Localização do Executável
+    # 5. diretório do executável do chrome.
     caminho_chrome = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
     if not os.path.exists(caminho_chrome):
         caminho_chrome = r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
 
-    # 6. Lançamento do Chrome
-    # O --user-data-dir aponta para onde os arquivos clonados estão
+    # 6. abrir o chrome
+    # o --user-data-dir ve onde os arquivos clonados estão e abre o chrome com o perfil e direto na página do controle
     url_sap = "http://134.65.18.92:8000/quality/transferencia/#/conferencias"
     comando = f'"{caminho_chrome}" --remote-debugging-port=9224 --user-data-dir="{pasta_raiz}" --remote-allow-origins=* "{url_sap}"'
 
-    # --- O HACK PARA SUMIR COM O "RESTAURAR PÁGINAS" ---
+    # tive que fazer isso por conta de uma pegadihna kkkkkk, quando o taskkill rodou, ele matou o chrome, quando a gente abre ele aqui, aquele msgbox
+    # de restaurar página aparece, quando ela aparece, o script falha quando tenta focar em algumas coisas, isso aqui serve pra fechar o restaurar páginas.
     caminho_prefs = os.path.join(pasta_raiz, "Default", "Preferences")
     if os.path.exists(caminho_prefs):
         try:
             with open(caminho_prefs, "r", encoding="utf-8") as f:
                 dados_prefs = f.read()
-            # Engana o Chrome dizendo que ele não crashou
+            # aqui os dados são trocados, tira a informação de que o chrome crashou.
             dados_prefs = dados_prefs.replace('"exit_type":"Crashed"', '"exit_type":"Normal"')
             dados_prefs = dados_prefs.replace('"exited_cleanly":false', '"exited_cleanly":true')
             with open(caminho_prefs, "w", encoding="utf-8") as f:
@@ -85,14 +86,14 @@ def preparar_ambiente_chrome():
         except Exception:
             pass
 
-    # Lançamento do Chrome (Adicionei flags extras anti-popup)
+    # abertura do chrome, com alguns comandos pra impedir msgbox popup essas coisas
     url_sap = "http://134.65.18.92:8000/quality/transferencia/#/conferencias"
     comando = f'"{caminho_chrome}" --remote-debugging-port=9224 --user-data-dir="{pasta_raiz}" --disable-infobars --disable-session-crashed-bubble "{url_sap}"'
     
     subprocess.Popen(comando, shell=True)
     time.sleep(5) 
     
-    # 7. Validação Final
+    # 7. validação da porta
     try:
         urllib.request.urlopen("http://127.0.0.1:9224/json", timeout=5)
         return True
@@ -109,8 +110,8 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 def configurar_chrome_loja():
-    """Cria/atualiza o atalho do Chrome na área de trabalho com a porta 9224.
-    A loja usa esse atalho para tudo — conferência e uso cotidiano."""
+    # isso aqui cria um novo atalho com a porta 9224, isso aqui é pra caso, a loja abra por essa porta
+    # a conferência já vai poder ser feita sem ter q dar o taskkill, é mais UX
     try:
         caminho_chrome = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
         if not os.path.exists(caminho_chrome):
@@ -124,12 +125,10 @@ def configurar_chrome_loja():
         shell  = win32com.client.Dispatch("WScript.Shell")
         atalho = shell.CreateShortCut(caminho_atalho)
 
-        # Só recria se a porta ainda não estiver lá
         if "--remote-debugging-port=9224" in atalho.Arguments:
             return
 
         atalho.TargetPath   = caminho_chrome
-        # SEM --user-data-dir: usa o perfil padrão da loja normalmente
         atalho.Arguments    = "--remote-debugging-port=9224 --remote-allow-origins=*"
         atalho.Description  = "Google Chrome"
         atalho.IconLocation = caminho_chrome + ",0"
@@ -235,15 +234,16 @@ def zipar_ot(numero_ot, diretorio_destino):
 # ──────────────────────────────────────────────
 # emails
 # ──────────────────────────────────────────────
-def enviar_email(numero_ot, caminho_zip, total_itens, total_manuais, total_removidos):
+def enviar_email(numero_ot, caminho_zip, total_itens, total_manuais, total_removidos, status_texto=""):
     try:
         msg = MIMEMultipart()
         msg["From"]    = EMAIL_REMETENTE
         msg["To"]      = ", ".join(EMAIL_DESTINATARIOS)
-        msg["Subject"] = f"Conferência Cega — OT {numero_ot} encerrada"
+        extra = f" - {status_texto()}" if status_texto else ""
+        msg["Subject"] = f"Conferência Cega — OT {numero_ot} encerrada{extra}"
 
         corpo = (
-            f"OT {numero_ot} encerrada.\n\n"
+            f"OT {numero_ot} encerrada {status_texto}.\n\n"
             f"Total de itens conferidos : {total_itens}\n"
             f"Entradas manuais          : {total_manuais}\n"
             f"Itens removidos           : {total_removidos}\n\n"
@@ -301,7 +301,7 @@ def encontrar_melhor_particao():
                 processar_lixeira(salvo)
                 return salvo
 
-    # 2. busca particao com mais espaco livre
+    # 2. busca pra ver a partição com mais espaço
     melhor, maior = None, -1
     for particao in _listar_particoes():
         try:
@@ -419,7 +419,7 @@ def gerar_relatorio(numero_ot, diretorio_destino, contagem, entradas_manuais, re
     return caminho_rel, conteudo, total_itens, total_manuais, total_removidos
 
 # ──────────────────────────────────────────────
-# ot sem divergencia email handler
+# ot sem divergencia enviador de email plus master
 # ──────────────────────────────────────────────
 def enviar_email_sem_fotos(numero_ot, caminho_rel, total_itens, total_manuais):
     try:
@@ -456,7 +456,7 @@ def enviar_email_sem_fotos(numero_ot, caminho_rel, total_itens, total_manuais):
 
 
 # ══════════════════════════════════════════════
-# view 1 - dashboard
+# TelaOT - primeira tela, onde preenche as info
 # ══════════════════════════════════════════════
 class TelaOT(ctk.CTk):
     def __init__(self, diretorio_raiz):
@@ -470,7 +470,7 @@ class TelaOT(ctk.CTk):
         self.resizable(False, False)
         aplicar_icone(self)
 
-        # verifica update em background — não trava o boot
+        # verifica update lá no github do pai
         self.after(2000, self._checar_update)
 
         
@@ -479,7 +479,7 @@ class TelaOT(ctk.CTk):
         ctk.CTkLabel(self, text="Prevenção de Perdas", font=ctk.CTkFont(size=13), text_color="gray").pack(pady=(0, 20))
 
         ctk.CTkLabel(self, text="Nome", font=ctk.CTkFont(size=13)).pack(anchor="w", padx=60)
-        self.campo_nome = ctk.CTkEntry(self, placeholder_text="Ex: Lucas Domingues", width=300, height=36)
+        self.campo_nome = ctk.CTkEntry(self, placeholder_text="Ex: Ana Beatriz", width=300, height=36)
         self.campo_nome.pack(padx=60, pady=(4, 12))
 
         ctk.CTkLabel(self, text="Função", font=ctk.CTkFont(size=13)).pack(anchor="w", padx=60)
@@ -500,7 +500,6 @@ class TelaOT(ctk.CTk):
         self.label_creditos = ctk.CTkLabel(self, text=texto_rodape, font=ctk.CTkFont(size=11), text_color="gray50")
         self.label_creditos.place(x=15, y=445)
 
-        # Botão admin no canto oposto
         self.btn_admin = ctk.CTkButton(self, text="⚙", width=30, fg_color="transparent", text_color="gray30", hover_color="gray25", command=self._acesso_admin)
         self.btn_admin.place(x=380, y=440)
 
@@ -508,7 +507,6 @@ class TelaOT(ctk.CTk):
 
     def _checar_update(self):
             def _on_update(versao_nova, url_exe):
-                # volta pra thread principal antes de abrir janela
                 self.after(0, lambda: JanelaUpdate(self, versao_nova, url_exe))
             verificar_atualizacao_async(_on_update)
 
@@ -522,7 +520,7 @@ class TelaOT(ctk.CTk):
         aplicar_icone(janela_senha)
 
         ctk.CTkLabel(janela_senha, text="Senha de Administrador", font=ctk.CTkFont(size=15, weight="bold")).pack(pady=(25, 10))
-        campo_senha = ctk.CTkEntry(janela_senha, placeholder_text="Digite a senha...", width=220, show="*", height=35)
+        campo_senha = ctk.CTkEntry(janela_senha, placeholder_text="Digite a senha", width=220, show="*", height=35)
         campo_senha.pack(pady=5)
 
         campo_senha.focus()
@@ -531,9 +529,9 @@ class TelaOT(ctk.CTk):
         def validar():
             if campo_senha.get() == SENHA_ADMIN:
                 janela_senha.destroy()
-                caminho_lixeira = os.path.join(self.diretorio_raiz, "admin", "Lixeira")
-                if os.path.exists(caminho_lixeira): os.startfile(caminho_lixeira)
-                else: messagebox.showerror("Erro", "Pasta da lixeira não encontrada.")
+                caminho_admin = os.path.join(self.diretorio_raiz, "admin")
+                if os.path.exists(caminho_admin): os.startfile(caminho_admin)
+                else: messagebox.showerror("Erro", "Pasta admin não encontrada.")
             else:
                 messagebox.showerror("Erro", "Senha incorreta!")
                 campo_senha.delete(0, "end")
@@ -551,26 +549,26 @@ class TelaOT(ctk.CTk):
             self.label_erro.configure(text="Preencha nome e função.", text_color="#e05c5c")
             return
         if not (ot.isdigit() and len(ot) == 6):
-            self.label_erro.configure(text="Digite exatamente 6 números para a OT.", text_color="#e05c5c")
+            self.label_erro.configure(text="Digite o número da OT", text_color="#e05c5c")
             return
 
-        self.label_erro.configure(text="Preparando ambiente seguro...", text_color="#e3a83b")
+        self.label_erro.configure(text="Preparando automação...", text_color="#e3a83b")
         self.update()
 
-        # O Chrome blindado é aberto
+        # abridura do chrome na porta 9224
         sucesso_chrome = preparar_ambiente_chrome()
         if not sucesso_chrome:
-            self.label_erro.configure(text="Falha ao iniciar o Chrome blindado.", text_color="#e05c5c")
+            self.label_erro.configure(text="Falha ao iniciar automação.", text_color="#e05c5c")
             return
 
-        self.label_erro.configure(text="Conectando ao Controle, aguarde...", text_color="#e3a83b")
+        self.label_erro.configure(text="Conectando ao Controle, aguarde.", text_color="#e3a83b")
         self.update()
 
         bot = MotorSAP()
         status_conn, msg_conn = bot.conectar()
 
         if not status_conn:
-            self.label_erro.configure(text="Falha no motor do robô. O Chrome fechou?", text_color="#e05c5c")
+            self.label_erro.configure(text="Falha ao iniciar. O Chrome fechou?", text_color="#e05c5c")
             return
 
         self.label_erro.configure(text="Procurando OT no sistema...", text_color="#e3a83b")
@@ -640,7 +638,7 @@ class TelaOT(ctk.CTk):
                         sessao_anterior=sessao_anterior, bot_sap=bot)
         
     def perguntar_nova_ot(self, nome_antigo, funcao_antiga):
-        self.deiconify() # Traz a TelaOT principal de volta
+        self.deiconify() # TelaOTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
         self.campo_ot.delete(0, "end")
         self.label_erro.configure(text="")
         
@@ -676,7 +674,7 @@ class TelaOT(ctk.CTk):
         ctk.CTkButton(frame_btns, text="Não, trocar usuário", width=140, height=40, fg_color="gray40", hover_color="gray50", command=nao).pack(side="left", padx=10)
 
 # ══════════════════════════════════════════════
-# view 2 - pdv hibrido (leitor + camera)
+# tela 2 - tela principal
 # ══════════════════════════════════════════════
 class TelaConferencia(ctk.CTkToplevel):
     def __init__(self, master_root, diretorio_raiz, numero_ot, nome_operador, funcao_operador, sessao_anterior=None, bot_sap=None):
@@ -834,7 +832,7 @@ class TelaConferencia(ctk.CTkToplevel):
         return "break" 
 
     def _estornar_registro(self, codigo, manual):
-        """Estorna a contagem local e emite alerta visual e sonoro."""
+        # estorna contagem em caso de erro no controle de transferência
         if self.contagem.get(codigo, 0) > 0:
             self.contagem[codigo] -= 1
             if manual and self.entradas_manuais.get(codigo, 0) > 0:
@@ -858,10 +856,13 @@ class TelaConferencia(ctk.CTkToplevel):
 
         while self.rodando:
             if self.cap and self.cap.isOpened():
-                ret, frame = self.cap.read()
-                if ret:
-                    with self.lock_camera:
-                        self.frame_atual = frame
+                try:
+                    ret, frame = self.cap.read()
+                    if ret:
+                        with self.lock_camera:
+                            self.frame_atual = frame
+                except:
+                    break
             time.sleep(0.03)
 
     def _atualizar_camera(self):
@@ -879,7 +880,7 @@ class TelaConferencia(ctk.CTkToplevel):
             img_pil = Image.fromarray(img_rgb).resize((720, 580), Image.BILINEAR)
             self.ctk_img.configure(light_image=img_pil, dark_image=img_pil)
             self.label_camera.configure(image=self.ctk_img, text="")
-            self.label_status_cam.configure(text="⬤  câmera ativa (monitoramento)", text_color="#4caf50")
+            self.label_status_cam.configure(text="⬤  câmera ativa", text_color="#4caf50")
 
         if self.rodando:
             self._after_id = self.after(60, self._atualizar_camera)
@@ -898,7 +899,7 @@ class TelaConferencia(ctk.CTkToplevel):
             cv2.imwrite(caminho, frame)
         else:
             with open(caminho.replace(".jpg", "_SEM_FOTO.txt"), "w", encoding="utf-8") as f:
-                f.write(f"Código    : {codigo}\nModo      : MANUAL sem foto\nTimestamp : {timestamp}\n")
+                f.write(f"Código    : {codigo}\nModo      : MANUAL sem foto\nTimestamp : {timestamp}\n") # melhorar isso dps, nao ficou bom
 
         self._atualizar_painel()
         
@@ -920,7 +921,7 @@ class TelaConferencia(ctk.CTkToplevel):
         aplicar_icone(modal)
 
         ctk.CTkLabel(modal, text="Remover Códigos", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(15, 5))
-        ctk.CTkLabel(modal, text="Selecione o tipo de entrada que deseja remover.\nO código removido deve ser retirado manualmente do Controle.", font=ctk.CTkFont(size=12), text_color="gray", justify="center").pack(pady=(0, 10))
+        ctk.CTkLabel(modal, text="Selecione o tipo de entrada que deseja remover.", font=ctk.CTkFont(size=12), text_color="gray", justify="center").pack(pady=(0, 10))
         
         campo_busca = ctk.CTkEntry(modal, placeholder_text="Buscar código...", width=460, height=34)
         campo_busca.pack(padx=20, pady=(0, 8))
@@ -977,7 +978,7 @@ class TelaConferencia(ctk.CTkToplevel):
         campo_busca.bind("<KeyRelease>", lambda e: carregar_lista(campo_busca.get().strip()))
         carregar_lista()
         
-        ctk.CTkButton(modal, text="Voltar para Câmera", width=180, height=40, font=ctk.CTkFont(size=14, weight="bold"), command=modal.destroy).pack(pady=20)
+        ctk.CTkButton(modal, text="Voltar", width=180, height=40, font=ctk.CTkFont(size=14, weight="bold"), command=modal.destroy).pack(pady=20)
 
     def encerrar(self):
         modal = ctk.CTkToplevel(self)
@@ -1007,7 +1008,7 @@ class TelaConferencia(ctk.CTkToplevel):
         aplicar_icone(conf)
 
         ctk.CTkLabel(conf, text="Atenção: Finalizar OT", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(20, 10))
-        ctk.CTkLabel(conf, text="O sistema irá verificar a OT no Controle e enviar para auditoria.\nVocê não poderá alterar esta OT depois.\n\nDeseja prosseguir?", wraplength=360, justify="center").pack(pady=10)
+        ctk.CTkLabel(conf, text="O sistema irá finalizar a OT no Controle e enviar para auditoria.\nVocê não poderá alterar esta OT depois.\n\nDeseja prosseguir?", wraplength=360, justify="center").pack(pady=10)
 
         frame_btns = ctk.CTkFrame(conf, fg_color="transparent")
         frame_btns.pack(pady=20)
@@ -1076,10 +1077,10 @@ class TelaConferencia(ctk.CTkToplevel):
                     elif sucesso and "Com" in msg_status:
                         modo = "divergencia"
                         
-                    self.after(0, lambda: atualizar_texto(f"Status Controle lido:\n{msg_status}"))
+                    self.after(0, lambda: atualizar_texto(f"Status Controle:\n{msg_status}"))
                     time.sleep(1.5)
                     
-                    self.after(0, lambda: atualizar_texto("Travando OT no sistema..."))
+                    self.after(0, lambda: atualizar_texto("Finalizando OT no sistema..."))
                     self.bot_sap.finalizar_ot()
                     self.bot_sap.desconectar()
                     
@@ -1097,6 +1098,7 @@ class TelaConferencia(ctk.CTkToplevel):
 
     def _finalizar_apos_sap(self, modo, loading):
         fim_sessao = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        status_texto = "com divergência" if modo == "divergencia" else "sem divergência"
         self.sessoes.append({
             "inicio": self.inicio_sessao, "fim": fim_sessao, "nome": self.nome_operador,
             "funcao": self.funcao_operador, "modo": modo
@@ -1107,22 +1109,17 @@ class TelaConferencia(ctk.CTkToplevel):
             self.numero_ot, self.diretorio_destino, self.contagem, self.entradas_manuais, self.removidos, self.sessoes)
 
         def _enviar():
+            nonlocal status_texto
+
+            self.after(0, lambda: [loading.destroy(), self._mostrar_relatorio(caminho_rel, conteudo, "pendente", "", modo)])
             if modo == "divergencia":
-                # Altera o texto da UI de forma segura usando self.after
-                self.after(0, lambda: self._label_loading.configure(text="Compactando fotos..."))
                 caminho_zip = zipar_ot(self.numero_ot, self.diretorio_destino)
-                
-                self.after(0, lambda: self._label_loading.configure(text="Enviando email com fotos..."))
-                sucesso, erro = enviar_email(self.numero_ot, caminho_zip, total_itens, total_manuais, total_removidos)
+                sucesso, erro = enviar_email(self.numero_ot, caminho_zip, total_itens, total_manuais, total_removidos, status_texto)
             else:
-                self.after(0, lambda: self._label_loading.configure(text="Enviando relatório por email ao CAL..."))
                 sucesso, erro = enviar_email_sem_fotos(self.numero_ot, caminho_rel, total_itens, total_manuais)
                 self._apagar_fotos()
 
-            # Fecha o loading e abre o relatório na Thread principal da UI
-            self.after(0, lambda: [loading.destroy(), self._mostrar_relatorio(caminho_rel, conteudo, sucesso, erro, modo)])
-
-        # Dispara a Thread de background
+        # thread em segundo plano
         threading.Thread(target=_enviar, daemon=True).start()
 
     def _apagar_fotos(self):
@@ -1143,16 +1140,15 @@ class TelaConferencia(ctk.CTkToplevel):
         win.grab_set()
         aplicar_icone(win)
         
-        # --- MUDANÇA: Criamos a função que fecha a câmera e chama a pergunta ---
+
         def fechar_tudo():
             win.destroy()                # Fecha essa janela do relatório
             nome = self.nome_operador    # Salva o nome
             funcao = self.funcao_operador# Salva a função
             master = self.master_root    # Salva a referência da tela principal
             self.destroy()               # Fecha a tela da câmera/conferência
-            master.perguntar_nova_ot(nome, funcao) # Acorda a tela inicial fazendo a pergunta!
+            master.perguntar_nova_ot(nome, funcao) # abre a TelaOT com a msgbox 
             
-        # Muda a ação do botão "X" da janela para usar nossa nova função
         win.protocol("WM_DELETE_WINDOW", fechar_tudo)
 
         ctk.CTkLabel(win, text="Conferência encerrada", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(20, 4))
@@ -1160,7 +1156,9 @@ class TelaConferencia(ctk.CTkToplevel):
         texto_modo = "OT COM DIVERGÊNCIA" if modo == "divergencia" else "OT SEM DIVERGÊNCIA"
         ctk.CTkLabel(win, text=texto_modo, text_color=cor_modo, font=ctk.CTkFont(weight="bold")).pack(pady=(0, 6))
 
-        if email_ok: ctk.CTkLabel(win, text="✓ Registro enviado por email", text_color="#4caf50").pack()
+        if email_ok == "pendente":
+            ctk.CTkLabel(win, text="☁ E-mail sendo enviado em segundo plano...", text_color="#e3a83b").pack()
+        elif email_ok: ctk.CTkLabel(win, text="✓ Registro enviado por email", text_color="#4caf50").pack()
         else: ctk.CTkLabel(win, text=f"⚠ Erro email: {email_erro}", text_color="#e05c5c").pack()
 
         caixa = ctk.CTkTextbox(win, font=ctk.CTkFont(family="Courier New", size=12))
@@ -1168,7 +1166,6 @@ class TelaConferencia(ctk.CTkToplevel):
         caixa.insert("end", conteudo)
         caixa.configure(state="disabled")
 
-        # --- MUDANÇA: O botão "Fechar" agora também usa a nossa função ---
         ctk.CTkButton(win, text="Fechar", height=40, command=fechar_tudo).pack(padx=16, pady=16, fill="x")
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ from tkinter import messagebox
 # ──────────────────────────────────────────────
 #  CONFIGURAÇÕES
 # ──────────────────────────────────────────────
-VERSAO_ATUAL   = "v1.2"
+VERSAO_ATUAL   = "v1.3"
 GITHUB_API_URL = "https://api.github.com/repos/NotLuvasz/conferencia-cega/releases/latest"
 TIMEOUT_REDE   = 4  
 
@@ -47,7 +47,7 @@ class JanelaUpdate(ctk.CTkToplevel):
         self.versao_nova = versao_nova
         self.url_exe     = url_exe
         self.cancelado   = False
-        self._baixando   = False # Trava para evitar duplo-clique acidental
+        self._baixando   = False
 
         self.title("Atualização disponível")
         self.geometry("380x220")
@@ -73,7 +73,7 @@ class JanelaUpdate(ctk.CTkToplevel):
 
         self.barra = ctk.CTkProgressBar(self, width=300)
         self.barra.set(0)
-        self.barra.pack(pady=(0, 16))
+        self.barra.pack(pady=(3, 13))
         self.barra.pack_forget() 
 
         frame_btns = ctk.CTkFrame(self, fg_color="transparent")
@@ -86,7 +86,7 @@ class JanelaUpdate(ctk.CTkToplevel):
         self.btn_nao.pack(side="left", padx=8)
 
     def _iniciar_download(self):
-        if self._baixando: return # Ignora se já estiver baixando
+        if self._baixando: return
         self._baixando = True
         self.btn_sim.configure(state="disabled")
         self.btn_nao.configure(state="disabled")
@@ -103,7 +103,10 @@ class JanelaUpdate(ctk.CTkToplevel):
             import sys
             import os
             
-            # Identifica se estamos rodando pelo código fonte (.py) ou pelo executável (.exe)
+            # identifica se o app tá rodando pelo .exe ou pelo .py (cmd). esse foi o problema de cascata que deu no código
+            # aliás, historia interessante, antes dessa identificação existir, quando vc atualizava o app que estava rodando pelo .py
+            # ele substituia o arquivo do python.exe, isso fazia com que o motor do OS python, virasse o app, então toda vez que tentava rodar
+            # qualquer .py, o app abria desatualizado
             eh_exe = getattr(sys, 'frozen', False)
             caminho_atual = sys.executable if eh_exe else os.path.abspath(sys.argv[0])
             pasta_exe   = os.path.dirname(caminho_atual)
@@ -118,7 +121,7 @@ class JanelaUpdate(ctk.CTkToplevel):
                     self.after(0, lambda p=pct: self.barra.set(p))
                     self.after(0, lambda p=pct: self.label_status.configure(text=f"Baixando... {int(p * 100)}%"))
 
-            # Como o repo é público, o urlretrieve comum já dá conta do recado
+            # repositório publico já serve pra puxar o release
             urllib.request.urlretrieve(self.url_exe, caminho_tmp, _progresso)
 
             if self.cancelado: return
@@ -126,8 +129,7 @@ class JanelaUpdate(ctk.CTkToplevel):
             self.after(0, lambda: self.label_status.configure(text="Aplicando atualização..."))
 
             if eh_exe:
-                # O Windows não deixa sobrescrever o .exe atual enquanto roda, 
-                # mas ele permite RENOMEAR o arquivo em uso.
+                # renomear o .exe atual, q tá rodando a bagaça
                 if os.path.exists(caminho_bkp):
                     try: os.remove(caminho_bkp)
                     except: pass
@@ -135,7 +137,7 @@ class JanelaUpdate(ctk.CTkToplevel):
                 os.rename(caminho_atual, caminho_bkp)
                 shutil.move(caminho_tmp, caminho_atual)
             else:
-                # Se rodou pelo terminal (.py), apenas move o novo .exe pra pasta
+                # se roda pelo cmd, ele cria um executavel novo
                 caminho_novo_exe = os.path.join(pasta_exe, "ConferenciaCega_Novo.exe")
                 shutil.move(caminho_tmp, caminho_novo_exe)
 
@@ -159,11 +161,11 @@ class JanelaUpdate(ctk.CTkToplevel):
         if eh_exe:
             subprocess.Popen([sys.executable] + sys.argv[1:])
         else:
-            # Se estava testando via terminal, abre o executável que acabou de baixar
+            # se estava pelo terminal, abre o executável que acabou de baixar
             pasta_exe = os.path.dirname(os.path.abspath(sys.argv[0]))
             subprocess.Popen([os.path.join(pasta_exe, "ConferenciaCega_Novo.exe")])
         
-        # A BALA DE PRATA: Mata o processo antigo na hora. Acaba com as janelas duplicadas.
+        # mata os coiso q tava aberto antes, o app, p n dar conflito e n confundir tb
         os._exit(0)
 
     def _erro(self, msg):
